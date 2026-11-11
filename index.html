@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SS14 — предпросмотр документов</title>
+<style>
+:root{--bg:#16161a;--panel:#25252a;--panel2:#30303a;--line:#43434f;--text:#e7e7ec;--mut:#9696a4;--acc:#5a86d6;--warn:#3a2326}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 "Noto Sans","Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+h1{font-size:15px;font-weight:600;margin:0 10px 0 0}
+.tabs{display:flex;gap:4px}
+.sp{flex:1}
+button,select{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:3px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr}
+.pane{display:flex;flex-direction:column;min-height:0}
+.pane+.pane{border-left:1px solid var(--line)}
+.bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;padding:7px 10px;background:var(--panel);border-bottom:1px solid var(--line);min-height:44px}
+.bar button{padding:2px 8px;min-width:28px}
+.bar input[type=color]{width:30px;height:26px;padding:0;border:1px solid var(--line);background:none}
+.bar label{color:var(--mut);display:flex;gap:8px;align-items:center;margin-right:10px}
+.chip{border-radius:12px;padding:2px 10px}
+textarea{flex:1;width:100%;resize:none;border:0;padding:12px;background:#101014;color:var(--text);font:13px/1.55 ui-monospace,"Cascadia Code",Consolas,monospace;tab-size:2}
+.warn{background:var(--warn);color:#ffb9b9;padding:6px 12px;font-size:12px;max-height:96px;overflow:auto}
+.warn:empty{display:none}
+.view{flex:1;overflow:auto;padding:22px 16px;background:#101014}
+.win{margin:0 auto;max-width:100%;background:var(--panel);border:1px solid #5a5a68;box-shadow:0 10px 30px #0009}
+.wt{display:flex;justify-content:space-between;padding:4px 10px;background:#3b3b46;font-size:12px;color:#ddd}
+.paper{background:#e9e5d5;color:#171717;padding:14px 16px;min-height:220px;white-space:pre-wrap;overflow-wrap:anywhere}
+.guide{padding:12px 16px 16px;overflow-wrap:anywhere}
+.h1,.h2,.h3{display:block;font-weight:700;line-height:1.25}
+.h1{font-size:1.8em}.h2{font-size:1.45em}.h3{font-size:1.2em}
+.guide .h1{border-bottom:1px solid var(--line);padding-bottom:3px;margin:.3em 0 .4em}
+.guide .h2,.guide .h3{margin:.6em 0 .3em}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.guide p{margin:.5em 0}
+.guide ul{margin:.4em 0;padding-left:1.3em}
+.guide hr{border:0;border-top:1px solid var(--line);margin:10px 0}
+.box{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}.box.v{flex-direction:column}
+.tbl{display:grid;gap:6px;margin:6px 0}
+.cb{padding:8px;border-radius:2px;color:#fff}
+.emb{display:inline-flex;flex-direction:column;align-items:center;gap:3px;padding:8px;min-width:96px;background:#1c1c21;border:1px dashed #666674;color:var(--mut);font-size:12px;text-align:center}
+.emb .ico{width:40px;height:40px;display:grid;place-items:center;background:#2b2b33;font-size:20px;color:#bbb}
+.emb .cap{color:var(--text)}
+.stamps{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;white-space:normal}
+.stamp{border:3px double currentColor;padding:1px 9px;font-weight:700;letter-spacing:.05em;transform:rotate(-4deg);opacity:.88}
+@media(max-width:800px){main{grid-template-columns:1fr;grid-template-rows:1fr 1.2fr}.pane+.pane{border-left:0;border-top:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>SS14 — предпросмотр документов</h1>
+  <div class="tabs"><button id="tp">Бумага</button><button id="tg">Гайдбук (XML)</button></div>
+  <span class="sp"></span>
+  <button id="ex">Пример</button><button id="lk">Скопировать ссылку</button>
+</header>
+<main>
+  <section class="pane"><div class="bar" id="tools"></div><textarea id="ed" spellcheck="false" aria-label="Текст документа"></textarea><div class="warn" id="warn"></div></section>
+  <section class="pane">
+    <div class="bar"><label>Ширина окна <input type="range" id="wd" min="260" max="640" value="420"><span id="wv">420</span> px</label><span id="stp"></span></div>
+    <div class="view" id="view"></div>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const mk=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+
+const SAMPLE={
+paper:`[head=1]Приказ №14[/head]
+[bold]От:[/bold] Капитан станции
+[bold]Кому:[/bold] Служба безопасности
+
+[head=2]Сводка[/head]
+[bullet/] Усилить патрули в карго
+[bullet/] Проверить [color=#c0392b]красный код[/color] в шлюзах
+[bullet/] Доложить [italic]до конца смены[/italic]
+
+[mono]ID: 0014-A[/mono]`,
+guide:`<Document>
+  # Работа с ключом
+  Обычный абзац с [bold]жирным[/bold] и [color=#5a86d6]цветным[/color] текстом.
+
+  ## Инструменты
+  - Гаечный ключ
+  - Отвёртка
+
+  <Box Orientation="Horizontal">
+    <GuideEntityEmbed Entity="Wrench" Caption="Гаечный ключ"/>
+    <GuideEntityEmbed Entity="Screwdriver"/>
+  </Box>
+  <Rule/>
+  <Table Columns="2">
+    <Box>[bold]Предмет[/bold]</Box>
+    <Box>[bold]Назначение[/bold]</Box>
+    <Box>Ключ</Box>
+    <Box>Болты и гайки</Box>
+  </Table>
+  <ColorBox Color="#7a2a2a">Осторожно: высокое напряжение.</ColorBox>
+</Document>`};
+
+const STAMPS=[{id:'ok',t:'Одобрено',c:'#1f7a35'},{id:'no',t:'Отказано',c:'#b3261e'},{id:'cap',t:'Капитан',c:'#1f4fb3'},{id:'cc',t:'Центком',c:'#7b2cb3'}];
+const INL=[['B','[bold]','[/bold]'],['I','[italic]','[/italic]'],['mono','[mono]','[/mono]']];
+const TOOLS={
+  paper:[...INL,['H1','[head=1]','[/head]'],['H2','[head=2]','[/head]'],['H3','[head=3]','[/head]'],['•','[bullet/] ','']],
+  guide:[...INL,['#','# ',''],['##','## ',''],['###','### ',''],['•','- ',''],['Box','<Box Orientation="Horizontal">\n  ','\n</Box>'],['Embed','<GuideEntityEmbed Entity="" Caption=""/>',''],['Rule','<Rule/>','']]
+};
+
+let mode='paper',docs={paper:SAMPLE.paper,guide:SAMPLE.guide},stamps=new Set(),width=420;
+try{
+  const h=location.hash.slice(1);
+  if(h){const o=JSON.parse(decodeURIComponent(escape(atob(h))));if(o.m&&o.t!=null){mode=o.m;docs[o.m]=o.t}}
+  else{const s=JSON.parse(localStorage.getItem('ss14prev')||'null');if(s){mode=s.m;Object.assign(docs,s.d)}}
+}catch(e){}
+if(!TOOLS[mode])mode='paper';
+
+/* ---------- разметка [tag] ---------- */
+const TAGS={bold:'b',b:'b',italic:'i',i:'i',bolditalic:'bi',mono:'mono',color:'color',head:'head',font:'font',lb:'lb',bullet:'bullet'};
+function attrs(s){
+  s=s.trim();const o={};
+  if(s[0]==='='){o.v=s.slice(1).trim().replace(/^"|"$/g,'');return o}
+  s.replace(/(\w+)=("[^"]*"|\S+)/g,(m,k,v)=>{o[k]=v.replace(/^"|"$/g,'');return m});
+  return o;
+}
+function markup(src,w){
+  const root=document.createDocumentFragment(),st=[{n:'root',el:root}];
+  const top=()=>st[st.length-1].el;
+  let last=0,swallow=false;
+  const text=s=>{
+    if(!s)return;
+    if(swallow&&s[0]==='\n')s=s.slice(1);
+    swallow=false;
+    if(s)top().append(document.createTextNode(s));
+  };
+  const re=/\[(\/?)([A-Za-z]+)([^\]]*)\]/g;let m;
+  while((m=re.exec(src))){
+    text(src.slice(last,m.index));last=re.lastIndex;
+    let a=m[3],self=false;
+    if(a.endsWith('/')){self=true;a=a.slice(0,-1)}
+    const kind=TAGS[m[2].toLowerCase()];
+    if(!kind){w.push('Неизвестный тег ['+m[2]+']: в игре он даст ошибку разбора');top().append(document.createTextNode(m[0]));continue}
+    if(m[1]){
+      let i=st.length-1;while(i>0&&st[i].n!==kind)i--;
+      if(i===0){w.push('Лишний закрывающий тег [/'+m[2]+']');continue}
+      if(i!==st.length-1)w.push('Теги закрыты в неверном порядке около [/'+m[2]+']');
+      st.length=i;
+      if(kind==='head')swallow=true;
+      continue;
+    }
+    if(kind==='lb'){top().append(document.createElement('br'));continue}
+    if(kind==='bullet'){top().append(document.createTextNode('  • '));continue}
+    const at=attrs(a);let el;
+    if(kind==='b')el=mk('b');
+    else if(kind==='i')el=mk('i');
+    else if(kind==='bi'){el=mk('span');el.style.fontWeight='700';el.style.fontStyle='italic'}
+    else if(kind==='mono')el=mk('span','mono');
+    else if(kind==='color'){
+      el=mk('span');
+      if(at.v&&CSS.supports('color',at.v))el.style.color=at.v;else w.push('Неверный цвет: '+(at.v||'не указан'));
+    }else if(kind==='head'){
+      const n=parseInt(at.v,10);
+      if(!(n>=1&&n<=3))w.push('[head] принимает значения 1–3');
+      el=mk('span','h'+(n>=1&&n<=3?n:1));
+    }else{el=mk('span');if(at.size)el.style.fontSize=at.size+'px'}
+    top().append(el);
+    if(!self)st.push({n:kind,el});
+  }
+  text(src.slice(last));
+  if(st.length>1)w.push('Не закрыты теги: '+st.slice(1).map(x=>'['+x.n+']').join(' '));
+  return root;
+}
+
+/* ---------- гайдбук XML ---------- */
+function blocks(txt,out,w){
+  let para=[],list=null;
+  const flush=()=>{if(para.length){const p=mk('p');p.append(markup(para.join(' '),w));out.append(p);para=[]}};
+  for(const raw of txt.split('\n')){
+    const l=raw.trim(),h=l.match(/^(#{1,3})\s+(.*)$/);
+    if(!l){flush();list=null}
+    else if(h){flush();list=null;const d=mk('div','h'+h[1].length);d.append(markup(h[2],w));out.append(d)}
+    else if(l.startsWith('- ')){flush();if(!list){list=mk('ul');out.append(list)}const li=mk('li');li.append(markup(l.slice(2),w));list.append(li)}
+    else{list=null;para.push(l)}
+  }
+  flush();
+}
+function embed(c,out){
+  const d=mk('div','emb'),ic=mk('div','ico','?');
+  const id=['Entity','Reagent','Group','Method','Id'].map(k=>c.getAttribute(k)).find(Boolean)||'';
+  d.append(ic,mk('div',null,id||c.nodeName));
+  const cap=c.getAttribute('Caption');if(cap)d.append(mk('div','cap',cap));
+  d.title=c.nodeName+' (в игре здесь будет спрайт или данные)';
+  out.append(d);
+}
+function walk(n,out,w){
+  for(const c of n.childNodes){
+    if(c.nodeType===3||c.nodeType===4){blocks(c.nodeValue,out,w);continue}
+    if(c.nodeType!==1)continue;
+    const nm=c.nodeName;let d;
+    if(nm==='Box'){d=mk('div','box'+(/^horizontal$/i.test(c.getAttribute('Orientation')||'')?'':' v'));walk(c,d,w);out.append(d)}
+    else if(nm==='Table'){d=mk('div','tbl');d.style.gridTemplateColumns='repeat('+(parseInt(c.getAttribute('Columns'),10)||1)+',auto)';walk(c,d,w);out.append(d)}
+    else if(nm==='ColorBox'){d=mk('div','cb');d.style.background=c.getAttribute('Color')||'#444';walk(c,d,w);out.append(d)}
+    else if(nm==='Rule')out.append(mk('hr'));
+    else if(/^Guide/.test(nm))embed(c,out);
+    else{w.push('Элемент <'+nm+'> не поддерживается превью, показываю только содержимое');walk(c,out,w)}
+  }
+}
+
+/* ---------- окна ---------- */
+function frame(title){
+  const f=mk('div','win'),t=mk('div','wt');
+  f.style.width=width+'px';t.append(mk('span',null,title),mk('span',null,'✕'));f.append(t);return f;
+}
+function render(){
+  const t=ed.value,w=[];docs[mode]=t;
+  view.textContent='';
+  if(mode==='paper'){
+    const f=frame('Бумага'),p=mk('div','paper');
+    p.append(markup(t,w));
+    const act=STAMPS.filter(s=>stamps.has(s.id));
+    if(act.length){const s=mk('div','stamps');act.forEach(x=>{const b=mk('span','stamp',x.t);b.style.color=x.c;s.append(b)});p.append(s)}
+    f.append(p);view.append(f);
+  }else{
+    const f=frame('Руководство'),g=mk('div','guide');
+    const doc=new DOMParser().parseFromString(t,'text/xml'),er=doc.querySelector('parsererror');
+    if(er)w.push('Ошибка XML: '+(er.textContent.split('\n').find(x=>x.trim())||'').slice(0,220));
+    else{
+      if(doc.documentElement.nodeName!=='Document')w.push('Корневой элемент должен быть <Document>');
+      walk(doc.documentElement,g,w);
+    }
+    f.append(g);view.append(f);
+  }
+  warn.textContent='';
+  [...new Set(w)].forEach(x=>warn.append(mk('div',null,'⚠ '+x)));
+  try{localStorage.setItem('ss14prev',JSON.stringify({m:mode,d:docs}))}catch(e){}
+}
+
+/* ---------- интерфейс ---------- */
+const ed=$('ed'),view=$('view'),warn=$('warn'),tools=$('tools'),stp=$('stp');
+function ins(o,c){
+  const s=ed.selectionStart,e=ed.selectionEnd,sel=ed.value.slice(s,e);
+  ed.setRangeText(o+sel+c,s,e,'preserve');
+  const p=s+o.length+sel.length;ed.setSelectionRange(p,p);ed.focus();render();
+}
+function buildTools(){
+  tools.textContent='';
+  TOOLS[mode].forEach(([l,o,c])=>{const b=mk('button',null,l);b.onclick=()=>ins(o,c);tools.append(b)});
+  const col=mk('input');col.type='color';col.value='#d33333';col.title='Цвет выделенного текста';
+  col.onchange=()=>ins('[color='+col.value+']','[/color]');tools.append(col);
+  stp.textContent='';
+  if(mode==='paper')STAMPS.forEach(s=>{
+    const b=mk('button','chip'+(stamps.has(s.id)?' on':''),s.t);
+    b.onclick=()=>{stamps.has(s.id)?stamps.delete(s.id):stamps.add(s.id);b.classList.toggle('on');render()};
+    stp.append(b);
+  });
+}
+function setMode(m){
+  mode=m;ed.value=docs[m];
+  $('tp').classList.toggle('on',m==='paper');$('tg').classList.toggle('on',m==='guide');
+  buildTools();render();
+}
+$('tp').onclick=()=>setMode('paper');
+$('tg').onclick=()=>setMode('guide');
+$('ex').onclick=()=>{if(docs[mode]===SAMPLE[mode]||confirm('Заменить текущий текст примером?')){docs[mode]=SAMPLE[mode];ed.value=docs[mode];render()}};
+$('lk').onclick=async()=>{
+  try{
+    location.hash=btoa(unescape(encodeURIComponent(JSON.stringify({m:mode,t:ed.value}))));
+    await navigator.clipboard.writeText(location.href);
+    $('lk').textContent='Скопировано';setTimeout(()=>$('lk').textContent='Скопировать ссылку',1500);
+  }catch(e){$('lk').textContent='Ссылка в адресной строке'}
+};
+$('wd').oninput=e=>{width=+e.target.value;$('wv').textContent=width;render()};
+ed.oninput=render;
+$('wd').value=width;
+setMode(mode);
+</script>
+</body>
+</html>
